@@ -3,286 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quantum Particle Hand Master</title>
+    <title>Quantum Particle Final</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; }
-        #video_container { position: absolute; bottom: 20px; right: 20px; width: 180px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.2); transform: scaleX(-1); z-index: 10; opacity: 0.5; transition: opacity 0.3s; }
-        #video_container:hover { opacity: 1; }
-        video { width: 100%; display: block; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.3); pointer-events: none; z-index: 10; }
-        .cmd { color: #0f0; font-weight: bold; }
-        .sh { color: #0ff; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        #video_container { position: absolute; bottom: 10px; right: 10px; width: 180px; height: 135px; border: 2px solid #00f2ff; border-radius: 10px; overflow: hidden; transform: scaleX(-1); z-index: 10; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px; pointer-events: none; z-index: 10; border-left: 4px solid #00f2ff; }
+        .hint { color: #00f2ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h3 style="margin:0 0 10px 0; color:#0ff;">Quantum Control v1.0</h3>
-    <p><span class="cmd">[Fist]</span> <span class="sh">SATURN</span> (Gold)</p>
-    <p><span class="cmd">[1 Finger]</span> <span class="sh">EIFFEL</span> (White)</p>
-    <p><span class="cmd">[2 Fingers]</span> <span class="sh">EARTH</span> (Terraform)</p>
-    <p><span class="cmd">[3 Fingers]</span> <span class="sh">XMAS T.</span> (Biolume)</p>
-    <p style="font-size:12px; color:#888;">Tilt hand to ZOOM</p>
+    <h3 style="margin:0">Particle Controller</h3>
+    <p><span class="hint">Mengepal:</span> Saturnus</p>
+    <p><span class="hint">1 Jari:</span> Menara Eiffel</p>
+    <p><span class="hint">2 Jari:</span> Planet Bumi</p>
+    <p><span class="hint">3 Jari:</span> Pohon Natal</p>
+    <p style="font-size: 12px; color: #aaa;">Putar pergelangan tangan untuk ZOOM</p>
 </div>
 
 <div id="video_container">
     <video id="input_video"></video>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-<script id="vertexShader" type="x-shader/x-vertex">
-    uniform float time;
-    uniform float morphProgress;
-    attribute vec3 targetPosition;
-    attribute vec3 targetColor;
-    varying vec3 vColor;
-    varying float vPulse;
-
-    void main() {
-        // 1. Morphing calculation (Smooth LERP on GPU)
-        vec3 morphedPosition = mix(position, targetPosition, morphProgress);
-        
-        // 2. Pulse effect based on time and position
-        float pulse = sin(time * 3.0 + morphedPosition.x * 0.5 + morphedPosition.y * 0.5) * 0.15 + 0.85;
-        vPulse = pulse;
-        
-        // 3. Color calculation (Smooth LERP)
-        vColor = mix(color, targetColor, morphProgress);
-
-        // 4. Final Position with subtle wobble
-        vec3 finalPos = morphedPosition;
-        finalPos.x += sin(time * 0.5 + morphedPosition.y) * 0.05 * morphProgress;
-        
-        vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
-        gl_Position = projectionMatrix * mvPosition;
-
-        // 5. Size Attenuation (Closer = Bigger) & Pulsing Size
-        gl_PointSize = (20.0 / -mvPosition.z) * pulse;
-    }
-</script>
-
-<script id="fragmentShader" type="x-shader/x-fragment">
-    varying vec3 vColor;
-    varying float vPulse;
-
-    void main() {
-        // Make particles round
-        vec2 d = gl_PointCoord - vec2(0.5);
-        if (length(d) > 0.5) discard;
-
-        // Create inner glow and soft edge
-        float dist = length(d);
-        float glow = Math.pow(1.0 - dist * 2.0, 3.0);
-        
-        // Final color with pulsing intensity
-        gl_FragColor = vec4(vColor * vPulse + glow * 0.2, 0.8 * vPulse);
-    }
-</script>
 
 <script>
-// --- CONFIG & SCENE ---
+// --- 1. SETUP DASAR ---
 const particleCount = 150000;
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000000, 0.01);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.z = 25;
-
-const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-// --- GEOMETRY DATA & SHAPE GENERATORS ---
+camera.position.z = 25;
+
+// --- 2. GENERATOR BENTUK ---
 const geometry = new THREE.BufferGeometry();
-const basePos = new Float32Array(particleCount * 3);
-const baseCol = new Float32Array(particleCount * 3);
-const targetPos = new Float32Array(particleCount * 3);
-const targetCol = new Float32Array(particleCount * 3);
+const posArray = new Float32Array(particleCount * 3);
+const colArray = new Float32Array(particleCount * 3);
 
-// Function to store shape data in specific typed arrays
-function generateShape(targetPosArray, targetColArray, type) {
-    for (let i = 0; i < particleCount; i++) {
-        const idx = i * 3;
-        let x, y, z, r, g, b;
+const shapes = {
+    saturn: new Float32Array(particleCount * 3),
+    eiffel: new Float32Array(particleCount * 3),
+    earth: new Float32Array(particleCount * 3),
+    earthCol: new Float32Array(particleCount * 3),
+    xmas: new Float32Array(particleCount * 3),
+    xmasCol: new Float32Array(particleCount * 3)
+};
 
-        if (type === 'saturn') {
-            // Perfect Golden Saturn
-            if (i < particleCount * 0.45) {
-                const phi = Math.acos(-1 + (2 * i) / (particleCount * 0.45));
-                const theta = Math.sqrt(particleCount * 0.45 * Math.PI) * phi;
-                x = 3.5 * Math.cos(theta) * Math.sin(phi);
-                y = 3.5 * Math.sin(theta) * Math.sin(phi);
-                z = 3.5 * Math.cos(phi);
-            } else {
-                const ra = 5 + Math.random() * 4;
-                const a = Math.random() * Math.PI * 2;
-                x = Math.cos(a) * ra; y = (Math.random()-0.5) * 0.3; z = Math.sin(a) * ra;
-            }
-            r = 1.0; g = 0.85; b = 0.1; // Gold
-        } 
-        else if (type === 'eiffel') {
-            // Cinematic Eiffel
-            const yE = (Math.random() * 18) - 9;
-            const nYE = (yE + 9) / 18;
-            const curve = 4.5 * Math.exp(-2.5 * nYE);
-            let spread = 0.05;
-            if (Math.abs(nYE - 0.18) < 0.008 || Math.abs(nYE - 0.48) < 0.008) spread = curve; 
-            const pillar = Math.floor(Math.random() * 4);
-            x = ((pillar < 2 ? 1 : -1) * curve) + (Math.random()-0.5) * spread;
-            y = yE;
-            z = ((pillar % 2 === 0 ? 1 : -1) * curve) + (Math.random()-0.5) * spread;
-            r = 0.9; g = 0.9; b = 1.0; // Cinematic White
-        } 
-        else if (type === 'earth') {
-            // Terraform Earth
-            const p = Math.acos(-1 + (2 * i) / particleCount);
-            const t = Math.sqrt(particleCount * Math.PI) * p;
-            const rE = 6.5;
-            x = rE * Math.cos(t) * Math.sin(p);
-            y = rE * Math.sin(t) * Math.sin(p);
-            z = rE * Math.cos(p);
-            // Simulating Earth Noise
-            const n = Math.sin(x*0.4)*Math.cos(y*0.4)*Math.sin(z*0.4) + Math.sin(x*0.9)*Math.sin(z*0.9);
-            if (Math.abs(y) > 5.8) { r=1.0; g=1.0; b=1.0; } // Ice
-            else if (n > 0.18) { r=0.1; g=0.5; b=0.15; } // Land
-            else { r=0.0; g=0.1; b=0.4; } // Deep Ocean
-        } 
-        else if (type === 'xmas') {
-            // Biolume Xmas Tree
-            const yX = (Math.random() * 14) - 7;
-            const nYX = (yX + 7) / 14;
-            let rX;
-            if (nYX < 0.1) { rX = 0.5; r=0.3; g=0.15; b=0.05; }
-            else { 
-                rX = (1.1 - nYX) * 5 * (0.8 + Math.sin(yX*2.5)*0.2);
-                if (Math.random() > 0.97) { r=1; g=0; b=0; } // Red Ornament
-                else { r=0; g=Math.random()*0.5+0.1; b=0; } // Green
-            }
-            x = (Math.random()-0.5) * rX; y = yX; z = (Math.random()-0.5) * rX;
-        }
+for (let i = 0; i < particleCount; i++) {
+    const idx = i * 3;
 
-        targetPosArray[idx] = x; targetPosArray[idx+1] = y; targetPosArray[idx+2] = z;
-        targetColArray[idx] = r; targetColArray[idx+1] = g; targetColArray[idx+2] = b;
+    // Saturnus
+    if (i < particleCount * 0.4) {
+        const phi = Math.acos(-1 + (2 * i) / (particleCount * 0.4));
+        const theta = Math.sqrt(particleCount * 0.4 * Math.PI) * phi;
+        shapes.saturn[idx] = 4 * Math.cos(theta) * Math.sin(phi);
+        shapes.saturn[idx+1] = 4 * Math.sin(theta) * Math.sin(phi);
+        shapes.saturn[idx+2] = 4 * Math.cos(phi);
+    } else {
+        const r = 6 + Math.random() * 3;
+        const a = Math.random() * Math.PI * 2;
+        shapes.saturn[idx] = Math.cos(a) * r;
+        shapes.saturn[idx+1] = (Math.random() - 0.5) * 0.3;
+        shapes.saturn[idx+2] = Math.sin(a) * r;
     }
+
+    // Eiffel (Matematika Eksponensial)
+    const yE = (Math.random() * 20) - 10;
+    const nYE = (yE + 10) / 20;
+    const curve = 5 * Math.exp(-2.5 * nYE);
+    const p = Math.floor(Math.random() * 4);
+    shapes.eiffel[idx] = ((p < 2 ? 1 : -1) * curve) + (Math.random()-0.5)*0.1;
+    shapes.eiffel[idx+1] = yE;
+    shapes.eiffel[idx+2] = ((p % 2 === 0 ? 1 : -1) * curve) + (Math.random()-0.5)*0.1;
+
+    // Bumi
+    const phiB = Math.acos(-1 + (2 * i) / particleCount);
+    const thetaB = Math.sqrt(particleCount * Math.PI) * phiB;
+    const rB = 7;
+    shapes.earth[idx] = rB * Math.cos(thetaB) * Math.sin(phiB);
+    shapes.earth[idx+1] = rB * Math.sin(thetaB) * Math.sin(phiB);
+    shapes.earth[idx+2] = rB * Math.cos(phiB);
+    const n = Math.sin(shapes.earth[idx]*0.5) * Math.cos(shapes.earth[idx+1]*0.5);
+    const c = new THREE.Color(n > 0.1 ? 0x228b22 : 0x0044ff);
+    shapes.earthCol[idx] = c.r; shapes.earthCol[idx+1] = c.g; shapes.earthCol[idx+2] = c.b;
+
+    // Xmas
+    const yX = (Math.random() * 16) - 8;
+    const nYX = (yX + 8) / 16;
+    const rX = (1.1 - nYX) * 6;
+    shapes.xmas[idx] = (Math.random()-0.5) * rX;
+    shapes.xmas[idx+1] = yX;
+    shapes.xmas[idx+2] = (Math.random()-0.5) * rX;
+    const cX = Math.random() > 0.98 ? new THREE.Color(0xff0000) : new THREE.Color(0x00ff00);
+    shapes.xmasCol[idx] = cX.r; shapes.xmasCol[idx+1] = cX.g; shapes.xmasCol[idx+2] = cX.b;
+
+    // Start as Saturn
+    posArray[idx] = shapes.saturn[idx];
+    posArray[idx+1] = shapes.saturn[idx+1];
+    posArray[idx+2] = shapes.saturn[idx+2];
+    colArray[idx] = 1; colArray[idx+1] = 0.8; colArray[idx+2] = 0.2;
 }
 
-// Generate base (initial) shape
-generateShape(basePos, baseCol, 'saturn');
+geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+geometry.setAttribute('color', new THREE.BufferAttribute(colArray, 3));
 
-geometry.setAttribute('position', new THREE.BufferAttribute(basePos, 3));
-geometry.setAttribute('color', new THREE.BufferAttribute(baseCol, 3));
-geometry.setAttribute('targetPosition', new THREE.BufferAttribute(targetPos, 3));
-geometry.setAttribute('targetColor', new THREE.BufferAttribute(targetCol, 3));
-
-// --- THE SHADER MATERIAL (Ultra-Glow) ---
-const material = new THREE.ShaderMaterial({
-    uniforms: { time: { value: 0 }, morphProgress: { value: 0 } },
-    vertexShader: document.getElementById('vertexShader').textContent,
-    fragmentShader: document.getElementById('fragmentShader').textContent,
+const material = new THREE.PointsMaterial({
+    size: 0.04,
+    vertexColors: true,
     transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    vertexColors: true
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending
 });
 
 const points = new THREE.Points(geometry, material);
 scene.add(points);
 
-// --- HAND TRACKING & LOGIC ---
-const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7 });
+// --- 3. LOGIKA TRACKING TANGAN ---
+let currentTarget = shapes.saturn;
+let currentTargetCol = null;
+let baseColor = new THREE.Color(0xffd700);
 
-let currentActiveShape = 'saturn';
-let morphTargetProgress = 0; // The desired progress (0 or 1)
+const videoElement = document.getElementById('input_video');
+const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+
+hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7 });
 
 hands.onResults((res) => {
     if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
         const pts = res.multiHandLandmarks[0];
 
-        // 1. Follow Palm (smooth)
-        points.position.x = THREE.MathUtils.lerp(points.position.x, (pts[9].x - 0.5) * -35, 0.1);
-        points.position.y = THREE.MathUtils.lerp(points.position.y, (pts[9].y - 0.5) * -25, 0.1);
+        // Follow Hand
+        points.position.x = THREE.MathUtils.lerp(points.position.x, (pts[9].x - 0.5) * -40, 0.1);
+        points.position.y = THREE.MathUtils.lerp(points.position.y, (pts[9].y - 0.5) * -30, 0.1);
 
-        // 2. Gesture Detection
-        const iU = pts[8].y < pts[6].y - 0.06;
-        const mU = pts[12].y < pts[10].y - 0.06;
-        const rU = pts[16].y < pts[14].y - 0.06;
-
-        let nextShape = 'saturn';
-        if (iU && mU && rU) nextShape = 'xmas';
-        else if (iU && mU) nextShape = 'earth';
-        else if (iU) nextShape = 'eiffel';
-
-        // Trigger Morph only if shape changes
-        if (nextShape !== currentActiveShape) {
-            console.log(`Morphing from ${currentActiveShape} to ${nextShape}`);
-            
-            // Swap buffers: Current state becomes base, new shape becomes target
-            const posAttr = geometry.attributes.position;
-            const colAttr = geometry.attributes.color;
-            const tPosAttr = geometry.attributes.targetPosition;
-            const tColAttr = geometry.attributes.targetColor;
-
-            // Important: We must generate the NEW shape into the target buffers
-            generateShape(tPosAttr.array, tColAttr.array, nextShape);
-            
-            // Set progress to 1 so the shader renders the NEW shape immediately
-            // But we will smoothly animate morphProgress from 0 to 1 in the loop
-            material.uniforms.morphProgress.value = 0; // Reset progress for the new transition
-            
-            tPosAttr.needsUpdate = true;
-            tColAttr.needsUpdate = true;
-            currentActiveShape = nextShape;
-        }
-
-        // 3. Tilt to Zoom (smooth)
+        // Rotate-to-Zoom
         const dx = pts[9].x - pts[0].x;
         const dy = pts[9].y - pts[0].y;
-        const tiltIntensity = Math.abs(Math.atan2(dy, dx) + Math.PI/2);
-        points.scale.lerp(new THREE.Vector3().setScalar(THREE.MathUtils.clamp(1.0 + tiltIntensity * 2.2, 0.9, 3.5)), 0.1);
+        const angle = Math.abs(Math.atan2(dy, dx) + Math.PI/2);
+        const zScale = 1.0 + angle * 2.5;
+        points.scale.lerp(new THREE.Vector3().setScalar(zScale), 0.1);
+
+        // Gesture Detect
+        const iU = pts[8].y < pts[6].y - 0.05;
+        const mU = pts[12].y < pts[10].y - 0.05;
+        const rU = pts[16].y < pts[14].y - 0.05;
+
+        if (iU && mU && rU) { currentTarget = shapes.xmas; currentTargetCol = shapes.xmasCol; }
+        else if (iU && mU) { currentTarget = shapes.earth; currentTargetCol = shapes.earthCol; }
+        else if (iU) { currentTarget = shapes.eiffel; currentTargetCol = null; baseColor.setHex(0xffffff); }
+        else { currentTarget = shapes.saturn; currentTargetCol = null; baseColor.setHex(0xffd700); }
     }
 });
 
-const cameraUtils = new Camera(document.getElementById('input_video'), { onFrame: async () => { await hands.send({image: document.getElementById('input_video')}); }, width: 640, height: 480 });
+const cameraUtils = new Camera(videoElement, {
+    onFrame: async () => { await hands.send({image: videoElement}); },
+    width: 640, height: 480
+});
 cameraUtils.start();
 
-// --- ANIMATION & MORPH LOOP ---
-const clock = new THREE.Clock();
-
+// --- 4. ANIMATION LOOP ---
 function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-    const time = clock.getElapsedTime();
-    material.uniforms.time.value = time;
+    const pos = geometry.attributes.position;
+    const col = geometry.attributes.color;
 
-    // Smoothly animate morphProgress towards 1 (completing the transition)
-    if (material.uniforms.morphProgress.value < 1) {
-        material.uniforms.morphProgress.value += delta * 1.5; // Morph speed (higher is faster)
-        if (material.uniforms.morphProgress.value > 1) {
-            // Transition complete: Copy target state back to base for next transition
-            material.uniforms.morphProgress.value = 1;
-            geometry.attributes.position.array.set(geometry.attributes.targetPosition.array);
-            geometry.attributes.color.array.set(geometry.attributes.targetColor.array);
-            geometry.attributes.position.needsUpdate = true;
-            geometry.attributes.color.needsUpdate = true;
-            material.uniforms.morphProgress.value = 0; // Reset progress for next trigger
+    for (let i = 0; i < particleCount; i++) {
+        const idx = i * 3;
+        // Morphing Posisi
+        pos.array[idx] += (currentTarget[idx] - pos.array[idx]) * 0.1;
+        pos.array[idx+1] += (currentTarget[idx+1] - pos.array[idx+1]) * 0.1;
+        pos.array[idx+2] += (currentTarget[idx+2] - pos.array[idx+2]) * 0.1;
+
+        // Morphing Warna
+        if (currentTargetCol) {
+            col.array[idx] += (currentTargetCol[idx] - col.array[idx]) * 0.1;
+            col.array[idx+1] += (currentTargetCol[idx+1] - col.array[idx+1]) * 0.1;
+            col.array[idx+2] += (currentTargetCol[idx+2] - col.array[idx+2]) * 0.1;
+        } else {
+            col.array[idx] += (baseColor.r - col.array[idx]) * 0.1;
+            col.array[idx+1] += (baseColor.g - col.array[idx+1]) * 0.1;
+            col.array[idx+2] += (baseColor.b - col.array[idx+2]) * 0.1;
         }
     }
     
-    // Background Rotation
-    points.rotation.y += 0.003;
-    points.rotation.x = Math.sin(time * 0.2) * 0.05;
-
+    pos.needsUpdate = true;
+    col.needsUpdate = true;
+    points.rotation.y += 0.005;
     renderer.render(scene, camera);
 }
 animate();
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
